@@ -1,0 +1,17 @@
+<html>
+    <head>
+        <script src = ".\toji-gl-matrix-7fc31d5\dist\gl-matrix-min.js"></script>
+        <script src="robot.js"></script>
+        <link href="styles.css" rel="stylesheet" type="text/css"/>
+    </head>
+    <body onload="start()">
+        <div>
+            <canvas id="glcanvas" class="gl_canvas" width="750px" height="500px">
+               Tu navegador parece no soportar el elemento HTML5 <code>&lt;canvas&gt;</code>.
+            </canvas>
+        </div>
+        <button style="display:inline-block" onclick="ortho = !ortho">Ortographic</button>
+        <input type="file" id="circuitoFile">
+        <button style="display:none" onclick="startCircuit();" id="botonCircuito">Empezar circuito</button>
+    </body>
+</html>
