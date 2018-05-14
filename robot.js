@@ -15,6 +15,11 @@ var circuitoColor = [];
 var circuitoBool = false;
 var calcularSensores = false;
 var fofView = 90;
+var newX = 0;
+var newY = 0;
+var width = 0;
+var height = 0;
+var mouseDown = false;
 
 // Constantes del robot
 var ANCHO = 10.0;   // Ancho del vehículo
@@ -72,39 +77,67 @@ function start() {
         // Vertex shader program
 
         const vsSource = `
-        attribute vec4 aVertexPosition;
-        attribute vec4 aVertexColor;
+            attribute vec4 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec2 aTextureCoord;
 
-        uniform mat4 uModelViewMatrix;
-        uniform mat4 uProjectionMatrix;
+            uniform mat4 uNormalMatrix;
+            uniform mat4 uModelViewMatrix;
+            uniform mat4 uProjectionMatrix;
 
-        varying lowp vec4 vColor;
+            varying highp vec2 vTextureCoord;
+            varying highp vec3 vLighting;
 
-        void main(void) {
-            gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-            vColor = aVertexColor;
-        }
-`;
+            void main(void) {
+                gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+                vTextureCoord = aTextureCoord;
+
+                // Apply lighting effect
+
+                highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
+                highp vec3 directionalLightColor = vec3(1, 1, 1);
+                highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
+
+                highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
+
+                highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
+                vLighting = ambientLight + (directionalLightColor * directional);
+            }
+        `;
         const fsSource = `
-        varying lowp vec4 vColor;
+        varying highp vec2 vTextureCoord;
+        varying highp vec3 vLighting;
+
+        uniform sampler2D uSampler;
 
         void main(void) {
-            gl_FragColor = vColor;
+            highp vec4 texelColor = texture2D(uSampler, vTextureCoord);
+
+            gl_FragColor = vec4(texelColor.rgb * vLighting, texelColor.a);
         }
-`;
+      `;
         
         canvas.addEventListener("wheel", scroll);
+        canvas.onmousedown = handleMouseDown;
+        document.onmouseup = handleMouseUp;
+        canvas.onmousemove = handleMouseMove;
+        
+        width = canvas.width;
+        height = canvas.height;
         
         const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
         programInfo = {
             program: shaderProgram,
             attribLocations: {
                 vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-                vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
+                vertexNormal: gl.getAttribLocation(shaderProgram, 'aVertexNormal'),
+                textureCoord: gl.getAttribLocation(shaderProgram, 'aTextureCoord'),
             },
             uniformLocations: {
                 projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
                 modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+                normalMatrix: gl.getUniformLocation(shaderProgram, 'uNormalMatrix'),
+                uSampler: gl.getUniformLocation(shaderProgram, 'uSampler'),
             },
         };
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -169,6 +202,10 @@ function start() {
 
             requestAnimationFrame(render);
         }
+        
+        setInterval(function(){
+            funTimer()
+        }, 1000/72);
 
         requestAnimationFrame(render);
     }
@@ -356,7 +393,7 @@ function cylinderBuffers(gl){
     var sides = 30;
     var radius = 0.2;
     const a = 0, c = 0;
-    const color = [0.0, 0.0, 0.0, 1.0];
+    const color = [1.0, 1.0, 0.0, 1.0];
     const theta = (Math.PI / 180) * (360/sides);
     var num = 0;
     var vertexPositionData = [];
@@ -588,7 +625,10 @@ function drawScene(gl, programInfo, buffers, deltaTime, circuitoBuffer) {
                          zNear,
                          zFar);
         
-        const eye    = [camX, 75.0,  camZ];
+        const eye    = [ (RC*Math.cos(newY*Math.PI/180.0)*Math.sin(newX*Math.PI/180.0)) + desX,
+                              RC*Math.sin(newY*Math.PI/180.0),
+                              (RC*Math.cos(newY*Math.PI/180.0)*Math.cos(newX*Math.PI/180.0)) + desZ];
+        //const eye    = [camX, 75.0,  camZ];
         //const eye    = [0.0, 50.0,  0.0];
         const center = [desX,  0.0,  desZ];
         const up     = [0.0, 1.0, 0.0];
@@ -613,7 +653,6 @@ function drawScene(gl, programInfo, buffers, deltaTime, circuitoBuffer) {
     
     
     
-    funTimer(deltaTime);
 }
 
 function drawCuerpo(buffers){
@@ -965,7 +1004,6 @@ function funTimer(deltaTime){
     
  // Para el efecto de los radios de las ruedas girando
     rotX -= 2.0;
-    setTimeout(function (){}, milisegundos*0.001*deltaTime);
 }
 
 function isPointInSensor(point, sensor){
@@ -983,6 +1021,30 @@ function startCircuit(){
 
 function scroll(e){
     fofView += e.deltaY/75;
+}
+
+function handleMouseDown(event){
+    mouseDown = true;
+    old_x = event.clientX;
+    old_y = event.clientY;
+}
+
+function handleMouseUp(){
+    mouseDown = false;
+}
+
+function handleMouseMove(event){
+    if(mouseDown) {  
+        newX += (old_x - event.clientX);
+        old_x = event.clientX;
+        newY += (event.clientY - old_y);
+        if(newY < 0){
+            newY = 0;
+        } else if (newY > 89){
+            newY = 89;
+        }
+        old_y = event.clientY;
+    }
 }
 
 function handleKeyDown(event) {
