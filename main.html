@@ -5,13 +5,30 @@
         <link href="styles.css" rel="stylesheet" type="text/css"/>
     </head>
     <body onload="start()">
-        <div>
+        <div class = "canvas">
             <canvas id="glcanvas" class="gl_canvas" width="750px" height="500px">
                Tu navegador parece no soportar el elemento HTML5 <code>&lt;canvas&gt;</code>.
             </canvas>
         </div>
-        <button style="display:inline-block" onclick="ortho = !ortho">Ortographic</button>
-        <input type="file" id="circuitoFile">
-        <button style="display:none" onclick="startCircuit();" id="botonCircuito">Empezar circuito</button>
+        <div class = "row">
+            <div class = "column izq">
+                <div class = "container cameraContainer">
+                    <h2 class = "cameras">Cameras</h2>
+                    <button class="button inline" onclick = "camera = 3">Automatic</button>
+                    <button class="button inline" onclick = "camera = 2">Ortographic</button>
+                    <button class="button inline" onclick = "camera = 1">Following</button>
+                </div>
+                <div class = "container">
+                    <h2 class = "cameras">Set circuit</h2>
+                    <input class="button inline" type="file" id="circuitoFile">
+                    <button class="button inline" style="display:none" onclick="startCircuit();" id="botonCircuito">Empezar circuito</button>
+                </div>
+            </div>
+            <div class = "column dcha">
+                <div class = "container">
+                    <h2 class = "Información">Informacion</h2>
+                </div>
+            </div>
+        </div>
     </body>
 </html>

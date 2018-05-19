@@ -2,3 +2,44 @@
     width: 750px;
     height: 500px;
 }
+
+.button {
+    padding: 4px;
+    margin: 4px;
+}
+
+.inline {
+    display: inline-block;
+}
+
+.cameras {
+    margin: 5px;
+}
+
+.column.izq{
+    float: left;
+    width: 70%;
+}
+
+.column.dcha {
+    float: left;
+    width: 29%;
+    margin-left: 1px;
+}
+
+.row {
+    margin-top: 5px;
+}
+
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
+.container {
+    border: 1px;
+    border-style: dashed;
+    border-color: black;
+    margin: -1px;
+}

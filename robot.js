@@ -7,11 +7,13 @@ var mvMatrixStack = [];
 var modelMatrix = mat4.create();
 var projectionMatrix = mat4.create();
 var viewMatrix = mat4.create();
+var normalMatrix = mat4.create();
 var currentlyPressedKeys = {};
 var circuito = [];
 var circuitoPoints = [];
 var circuitoIndex = [];
 var circuitoColor = [];
+var circuitoNormal = [];
 var circuitoBool = false;
 var calcularSensores = false;
 var fofView = 90;
@@ -20,6 +22,10 @@ var newY = 0;
 var width = 0;
 var height = 0;
 var mouseDown = false;
+var camera = 1;
+var minimoCircuito = null;
+var maximoCircuito = null;
+var center = null;
 
 // Constantes del robot
 var ANCHO = 10.0;   // Ancho del vehículo
@@ -77,45 +83,84 @@ function start() {
         // Vertex shader program
 
         const vsSource = `
-            attribute vec4 aVertexPosition;
-            attribute vec3 aVertexNormal;
-            attribute vec2 aTextureCoord;
+        attribute vec3 aVertexPosition;
+        attribute vec3 aVertexNormal;
 
-            uniform mat4 uNormalMatrix;
-            uniform mat4 uModelViewMatrix;
-            uniform mat4 uProjectionMatrix;
+        uniform mat4 uModelViewMatrix; 
+        uniform mat4 uProjectionMatrix; 
+        uniform mat4 uNormalMatrix; 
 
-            varying highp vec2 vTextureCoord;
-            varying highp vec3 vLighting;
-
-            void main(void) {
-                gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-                vTextureCoord = aTextureCoord;
-
-                // Apply lighting effect
-
-                highp vec3 ambientLight = vec3(0.3, 0.3, 0.3);
-                highp vec3 directionalLightColor = vec3(1, 1, 1);
-                highp vec3 directionalVector = normalize(vec3(0.85, 0.8, 0.75));
-
-                highp vec4 transformedNormal = uNormalMatrix * vec4(aVertexNormal, 1.0);
-
-                highp float directional = max(dot(transformedNormal.xyz, directionalVector), 0.0);
-                vLighting = ambientLight + (directionalLightColor * directional);
-            }
-        `;
-        const fsSource = `
-        varying highp vec2 vTextureCoord;
-        varying highp vec3 vLighting;
-
-        uniform sampler2D uSampler;
+        varying vec3 vNormal;
+        varying vec3 vEyeVec;
 
         void main(void) {
-            highp vec4 texelColor = texture2D(uSampler, vTextureCoord);
+             //Transformed vertex position
+             vec4 vertex = uModelViewMatrix * vec4(aVertexPosition, 1.0);
 
-            gl_FragColor = vec4(texelColor.rgb * vLighting, texelColor.a);
+             //Transformed normal position
+             vNormal = vec3(uNormalMatrix * vec4(aVertexNormal, 1.0));
+
+             //Vector Eye
+             vEyeVec = -vec3(vertex.xyz);
+
+             //Final vertex position
+             gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aVertexPosition, 1.0);
         }
-      `;
+`;
+        const fsSource = `
+        #ifdef GL_ES
+        precision highp float;
+        #endif
+
+        uniform float uShininess;        //shininess
+        uniform vec3 uLightDirection;  //light direction
+
+        uniform vec4 uLightAmbient;      //light ambient property
+        uniform vec4 uLightDiffuse;      //light diffuse property 
+        uniform vec4 uLightSpecular;     //light specular property
+
+        uniform vec4 uMaterialAmbient;  //object ambient property
+        uniform vec4 uMaterialDiffuse;   //object diffuse property
+        uniform vec4 uMaterialSpecular;  //object specular property
+
+        varying vec3 vNormal;
+        varying vec3 vEyeVec;
+
+        void main(void)
+        {
+             vec3 L = normalize(uLightDirection);
+             vec3 N = normalize(vNormal);
+
+             //Lambert's cosine law
+             float lambertTerm = dot(N,-L);
+
+             //Ambient Term
+             vec4 Ia = uLightAmbient * uMaterialAmbient;
+
+             //Diffuse Term
+             vec4 Id = vec4(0.0,0.0,0.0,1.0);
+
+             //Specular Term
+             vec4 Is = vec4(0.0,0.0,0.0,1.0);
+
+             if(lambertTerm > 0.0) //only if lambertTerm is positive
+             {
+                  Id = uLightDiffuse * uMaterialDiffuse * lambertTerm; //add diffuse term
+
+                  vec3 E = normalize(vEyeVec);
+                  vec3 R = reflect(L, N);
+                  float specular = pow( max(dot(R, E), 0.0), uShininess);
+
+                  Is = uLightSpecular * uMaterialSpecular * specular; //add specular term 
+             }
+
+             //Final color
+             vec4 finalColor = Ia + Id + Is;
+             finalColor.a = 1.0;
+
+             gl_FragColor = finalColor;
+        }
+`;
         
         canvas.addEventListener("wheel", scroll);
         canvas.onmousedown = handleMouseDown;
@@ -131,13 +176,19 @@ function start() {
             attribLocations: {
                 vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
                 vertexNormal: gl.getAttribLocation(shaderProgram, 'aVertexNormal'),
-                textureCoord: gl.getAttribLocation(shaderProgram, 'aTextureCoord'),
             },
             uniformLocations: {
                 projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
                 modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
                 normalMatrix: gl.getUniformLocation(shaderProgram, 'uNormalMatrix'),
-                uSampler: gl.getUniformLocation(shaderProgram, 'uSampler'),
+                uMaterialAmbient: gl.getUniformLocation(shaderProgram, 'uMaterialAmbient'),
+                uMaterialDiffuse: gl.getUniformLocation(shaderProgram, 'uMaterialDiffuse'),
+                uMaterialSpecular: gl.getUniformLocation(shaderProgram, 'uMaterialSpecular'),
+                uShininess: gl.getUniformLocation(shaderProgram, 'uShininess'),
+                uLightAmbient: gl.getUniformLocation(shaderProgram, 'uLightAmbient'),
+                uLightDiffuse: gl.getUniformLocation(shaderProgram, 'uLightDiffuse'),
+                uLightSpecular: gl.getUniformLocation(shaderProgram, 'uLightSpecular'),
+                uLightDirection: gl.getUniformLocation(shaderProgram, 'uLightDirection'),
             },
         };
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -162,18 +213,41 @@ function start() {
                 //Se mapean todas las coordenadas del circuito (añadiendo la altura ya que no viene en el archivo)
                 allLines.map((line) => {
                     var nums = line.split("  ");
-                    circuito.push(parseFloat(nums[0]));
-                    circuito.push(0);
-                    circuito.push(parseFloat(nums[1]));
-                    circuitoPoints.push([parseFloat(nums[0]), 0, parseFloat(nums[1])]);
+                    var x = parseFloat(nums[0]);
+                    var y = 0;
+                    var z = parseFloat(nums[1]);
+                    if(minimoCircuito == null){
+                        minimoCircuito = [x, y, z];
+                    } else {
+                        if(minimoCircuito[0] > x)
+                            minimoCircuito[0] = x;
+                        if(minimoCircuito[2] > z)
+                            minimoCircuito[2] = z;
+                    }
+                    
+                    if(maximoCircuito == null){
+                        maximoCircuito = [x, y, z];
+                    } else {
+                        if(maximoCircuito[0] < x)
+                            maximoCircuito[0] = x;
+                        if(maximoCircuito[2] < z)
+                            maximoCircuito[2] = z;
+                    }
+                    
+                    circuito.push(x);
+                    circuito.push(y);
+                    circuito.push(z);
+                    circuitoPoints.push([x, y, z]);
                     circuitoIndex.push((i%allLines.length));
                     circuitoIndex.push(((i+1)%allLines.length));
+                    circuitoNormal.push(0.0, 1.0, 0.0);
                     circuitoColor.push([1.0, 1.0, 1.0, 1.0]);
                     circuitoColor.push([1.0, 1.0, 1.0, 1.0]);
                     circuitoColor.push([1.0, 1.0, 1.0, 1.0]);
                     circuitoColor.push([1.0, 1.0, 1.0, 1.0]);
                     i++;
-                })
+                });
+                center = [(minimoCircuito[0] + maximoCircuito[0])/2, 0, (minimoCircuito[2] + maximoCircuito[2])/2];
                 //Aqui se llama a la funcion que pasa los valores al buffer, si no lo hago aqui no espera a que termine de mapearse todo.
                 resetCircuitBuffer(circuitoBuffer);
             }
@@ -222,6 +296,13 @@ function initBuffers(gl){
     }
 }
 
+function initLights(gl){
+    gl.uniform3f(programInfo.uniformLocations.uLightDirection,   0.0, -1.0, -1.0);
+    gl.uniform4fv(programInfo.uniformLocations.uLightAmbient, [0.03,0.03,0.03,1.0]);
+    gl.uniform4fv(programInfo.uniformLocations.uLightDiffuse,  [1.0,1.0,1.0,1.0]); 
+    gl.uniform4fv(programInfo.uniformLocations.uLightSpecular,  [1.0,1.0,1.0,1.0]);
+}
+
 // ------------------------------------------------- Aqui se cargan los datos al circuito -------------------
 function resetCircuitBuffer(buffers){
     circuitoBool = true;
@@ -235,8 +316,11 @@ function resetCircuitBuffer(buffers){
     
     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(circuitoColor), gl.STATIC_DRAW);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normal);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(circuitoNormal), gl.STATIC_DRAW);
     var boton = document.getElementById('botonCircuito');
-    boton.style.display = "block";
+    boton.style.display = "inline-block";
 }
 
 // ------------------------------------------- Aqui se inicializan los buffers --------------------------------
@@ -255,33 +339,44 @@ function circuitBuffer(gl){
     //gl.bindBuffer(gl.ARRAY_BUFFER, circuitoColorBuffer);
     //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(circuitoColor), gl.STATIC_DRAW);
     
+    const circuitoNormalBuffer = gl.createBuffer();
+    
+    var material = [
+        [0.5, 0.5, 0.5, 1.0],  //Material ambient
+        [1.0, 1.0, 1.0, 1.0],  //Material diffuse
+        [0.4, 0.4, 0.4, 1.0],     //Material specular
+        50.0                      //Shininess
+    ];
+    
     return {
         vertex: circuitoVertexBuffer,
         index: circuitoIndexBuffer,
-        color: circuitoColorBuffer
+        color: circuitoColorBuffer,
+        normal: circuitoNormalBuffer,
+        material: material
     }
 }
 
 function cubeBuffers(gl){
     
     const cubeVertex = [
-        -1, -1, -1,
-        -1, -1,  1,
-        -1,  1, -1,
-        -1,  1,  1,
-         1, -1, -1,
-         1, -1,  1,
-         1,  1, -1,
-         1,  1,  1,
+        -1, -1, -1, //0
+        -1, -1,  1, //1
+        -1,  1, -1, //2
+        -1,  1,  1, //3
+         1, -1, -1, //4
+         1, -1,  1, //5
+         1,  1, -1, //6
+         1,  1,  1, //7
     ];
     
     const cubeIndex = [
-        3, 1, 5,  3, 5, 7,
-        7, 5, 4,  7, 4, 6,
-        2, 3, 7,  2, 7, 6,
-        2, 0, 1,  2, 1, 3,
-        1, 0, 4,  1, 4, 5,
-        6, 4, 0,  6, 0, 2,
+        3, 1, 5,  3, 5, 7, //Front face
+        7, 5, 4,  7, 4, 6, //Right face
+        2, 3, 7,  2, 7, 6, //Top face
+        2, 0, 1,  2, 1, 3, //Left face
+        1, 0, 4,  1, 4, 5, //Bottom face
+        6, 4, 0,  6, 0, 2, //Back face
     ];
     
     const cubeColorsWhite = [
@@ -316,6 +411,17 @@ function cubeBuffers(gl){
         [0.0, 0.0, 0.0, 1.0],
         [0.0, 0.0, 0.0, 1.0],
     ];
+    
+    const cubeNormal = [
+        -1, -1, -1, //0
+        -1, -1,  1, //1
+        -1,  1, -1, //2
+        -1,  1,  1, //3
+         1, -1, -1, //4
+         1, -1,  1, //5
+         1,  1, -1, //6
+         1,  1,  1, //7
+    ]
     //Preparar buffers del cubo
     //Buffer de vértices
     const cubeVertexBuffer = gl.createBuffer();
@@ -327,6 +433,10 @@ function cubeBuffers(gl){
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeIndex), gl.STATIC_DRAW);
     cubeIndexBuffer.itemSize = 3;
     cubeIndexBuffer.numItems = cubeIndex.length;
+    //Buffer de normales
+    const cubeNormalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, cubeNormalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeNormal), gl.STATIC_DRAW);
     //Preparamos colores para el cubo
     var colors = [];
 
@@ -363,6 +473,35 @@ function cubeBuffers(gl){
         // Repeat each color four times for the four vertices of the face
         colorsBlack = colorsBlack.concat(c, c, c, c);
     }
+    
+    var materialWhite = [
+        [0.02, 0.02, 0.02, 1.0],  //Material ambient
+        [1.0, 1.0, 1.0, 1.0],  //Material diffuse
+        [0.4, 0.4, 0.4, 1.0],     //Material specular
+        50.0                      //Shininess
+    ];
+    
+    var materialRed = [
+        [0.02, 0.02, 0.02, 1.0],  //Material ambient
+        [1.0, 0.02, 0.01, 1.0],  //Material diffuse
+        [0.4, 0.4, 0.4, 1.0],     //Material specular
+        50.0                      //Shininess
+    ];
+    
+    var materialGrey = [
+        [0.20, 0.20, 0.20, 1.0],  //Material ambient
+        [0.30, 0.30, 0.30, 1.0],  //Material diffuse
+        [0.10, 0.10, 0.10, 1.0],     //Material specular
+        50.0                      //Shininess
+    ];
+    
+    var materialBlack = [
+        [0.02, 0.02, 0.02, 1.0],  //Material ambient
+        [0.1, 0.1, 0.1, 1.0],  //Material diffuse
+        [0.4, 0.4, 0.4, 1.0],     //Material specular
+        50.0                      //Shininess
+    ];
+    
     const cubeColorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, cubeColorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
@@ -381,10 +520,15 @@ function cubeBuffers(gl){
     return {
         vertex: cubeVertexBuffer,
         index: cubeIndexBuffer,
+        normal: cubeNormalBuffer,
         color: cubeColorBuffer,
         colorRed: cubeColorRedBuffer,
         colorGrey: cubeColorGreyBuffer,
-        colorBlack: cubeColorBlackBuffer
+        colorBlack: cubeColorBlackBuffer,
+        materialWhite: materialWhite,
+        materialRed: materialRed,
+        materialGrey: materialGrey,
+        materialBlack: materialBlack
     }
 }
 
@@ -399,6 +543,7 @@ function cylinderBuffers(gl){
     var vertexPositionData = [];
     var indexData = [];
     var colorData = [];
+    var normalData = [];
     
     for (i = 0; i < sides; i++){
         x = Math.cos(theta*i)*radius;
@@ -427,15 +572,27 @@ function cylinderBuffers(gl){
         vertexPositionData.push(z2);
         
         indexData.push(num, num + 1, num + 2);
+        calculateNormal(vertexPositionData[num], vertexPositionData[num + 1], vertexPositionData[num + 2], normalData)
         indexData.push(num + 4, num + 1, num + 2);
+        calculateNormal(vertexPositionData[num + 4], vertexPositionData[num + 1], vertexPositionData[num + 2], normalData)
         indexData.push(num + 4, num + 2, num + 5);
+        calculateNormal(vertexPositionData[num + 4], vertexPositionData[num + 2], vertexPositionData[num + 5], normalData)
         indexData.push(num + 3, num + 4, num + 5);
+        calculateNormal(vertexPositionData[num + 3], vertexPositionData[num + 4], vertexPositionData[num + 5], normalData)
         
         for (j = 0; j < 32; j++){
              colorData.push(color);
         }
         num += 6;
     }
+    
+    
+    var material = [
+        [0.02, 0.02, 0.02, 1.0],  //Material ambient
+        [1.0, 0.85, 0.01, 1.0],  //Material diffuse
+        [0.4, 0.4, 0.4, 1.0],     //Material specular
+        50.0                      //Shininess
+    ];
     
     var indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -447,6 +604,10 @@ function cylinderBuffers(gl){
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositionData), gl.STATIC_DRAW);
     
+    var normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalData), gl.STATIC_DRAW);
+    
     var colorBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorData), gl.STATIC_DRAW);
@@ -455,6 +616,8 @@ function cylinderBuffers(gl){
         vertex: vertexBuffer,
         index: indexBuffer,
         color: colorBuffer,
+        normal: normalBuffer,
+        material: material
     }
 }
 
@@ -464,6 +627,7 @@ function sphereBuffers(gl){
     var radius = 1;
     var vertexPositionData = [];
     var indexData = [];
+    var normalData = [];
     var colorBlueData = [];
     var colorGreenData = [];
     for (var latNumber = 0; latNumber <= latitudeBands; latNumber++){
@@ -482,6 +646,7 @@ function sphereBuffers(gl){
             vertexPositionData.push(radius * x);
             vertexPositionData.push(radius * y);
             vertexPositionData.push(radius * z);
+            normalData.push(x, y, z);
             colorBlueData.push([0.0, 0.0, 0.0, 1]);
             colorGreenData.push([0.0, 1.0, 0.0, 0.5]);
         }
@@ -495,6 +660,20 @@ function sphereBuffers(gl){
             indexData.push(second, second + 1, first + 1);
         }
     }
+    
+    var materialBlue = [
+        [0.02, 0.02, 0.02, 1.0],  //Material ambient
+        [0.01, 0.46, 0.84, 1.0],  //Material diffuse
+        [0.4, 0.4, 0.4, 1.0],     //Material specular
+        10.0                      //Shininess
+    ];
+    
+    var materialGreen = [
+        [0.02, 0.3, 0.02, 1.0],  //Material ambient
+        [0.01, 0.84, 0.10, 1.0],  //Material diffuse
+        [0.4, 0.4, 0.4, 1.0],     //Material specular
+        10.0                      //Shininess
+    ];
     
     var colors = [];
     for (var j = 0; j < colorBlueData.length; ++j) {
@@ -525,6 +704,10 @@ function sphereBuffers(gl){
     gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
     
+    var normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalData), gl.STATIC_DRAW);
+    
     var colorGreenBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, colorGreenBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorsGreen), gl.STATIC_DRAW);
@@ -532,8 +715,11 @@ function sphereBuffers(gl){
     return {
         vertex: vertexBuffer,
         index: indexBuffer,
+        normal: normalBuffer,
         color: colorBuffer,
-        colorGreen: colorGreenBuffer
+        colorGreen: colorGreenBuffer,
+        materialBlue: materialBlue,
+        materialGreen: materialGreen
     }
 }
 
@@ -608,17 +794,23 @@ function drawScene(gl, programInfo, buffers, deltaTime, circuitoBuffer) {
 
     // note: glmatrix.js always has the first argument
     // as the destination to receive the result.
-    if(ortho){
+    if(camera == 2){
         const left = -fofView, right = fofView, bottom = -fofView*0.75, top = fofView*0.75, nplane = 1, fplane = 1000;
         mat4.ortho(projectionMatrix, left, right, bottom, top, nplane, fplane);
         
-        const eye    = [desX , fofView, desZ];
-        const center = [desX,  0.0,  desZ];
+        var eye;
+        var thisCenter;
+        if(!circuitoBool){
+            eye    = [desX , fofView, desZ];
+            thisCenter = [desX,  0.0,  desZ];
+        } else {
+            eye = [center[0], fofView, center[2]];
+            thisCenter = center;
+        }
         const up     = [0.0, 0.0, 1.0];
 
-
-        mat4.lookAt(viewMatrix, eye, center, up);
-    } else {
+        mat4.lookAt(viewMatrix, eye, thisCenter, up);
+    } else if (camera == 1) {
         mat4.perspective(projectionMatrix,
                          fieldOfView,
                          aspect,
@@ -631,6 +823,25 @@ function drawScene(gl, programInfo, buffers, deltaTime, circuitoBuffer) {
         //const eye    = [camX, 75.0,  camZ];
         //const eye    = [0.0, 50.0,  0.0];
         const center = [desX,  0.0,  desZ];
+        const up     = [0.0, 1.0, 0.0];
+
+
+        mat4.lookAt(viewMatrix, eye, center, up);
+    } else {
+        mat4.perspective(projectionMatrix,
+                         fieldOfView,
+                         aspect,
+                         zNear,
+                         zFar);
+
+        
+        if(center == null || !circuitoBool){    
+            center = [desX,  0.0,  desZ];
+        }
+        const eye    = [ (RC*Math.cos(newY*Math.PI/180.0)*Math.sin(newX*Math.PI/180.0)) + center[0],
+                              RC*Math.sin(newY*Math.PI/180.0) + 50.0,
+                              (RC*Math.cos(newY*Math.PI/180.0)*Math.cos(newX*Math.PI/180.0)) + center[2]];
+        //const eye = [center[0], 75.0,  center[2]];
         const up     = [0.0, 1.0, 0.0];
 
 
@@ -659,8 +870,8 @@ function drawCuerpo(buffers){
     mvPushMatrix();
         mat4.translate(modelMatrix, modelMatrix, [0.0, 0.0, -(LARGO - RS)]);
         mat4.scale(modelMatrix, modelMatrix, [ANCHO, 1.0, LARGO]);
-        drawModelWired(buffers.cube, buffers.cube.colorBlack);
-        drawModel(buffers.cube);
+        //drawModelWired(buffers.cube, buffers.cube.colorBlack);
+        drawModel(buffers.cube, buffers.cube.materialWhite);
     mvPopMatrix();
 }
 
@@ -679,8 +890,8 @@ function drawRuedaDelantera(buffers){
         mat4.rotate(modelMatrix, modelMatrix,- rotX * Math.PI /180, [1.0, 0.0, 0.0]);
         mat4.rotate(modelMatrix, modelMatrix, 90 * Math.PI /180, [0.0, 0.0, 1.0]);
         mat4.scale(modelMatrix, modelMatrix, [RR,RR/2, RR]);
-        drawModel(buffers.sphere, buffers.sphere.colorGreen);
-        drawModelWired(buffers.sphere);
+        drawModel(buffers.sphere, buffers.sphere.materialGreen);
+        drawModelWired(buffers.sphere, buffers.sphere.materialBlue);
     mvPopMatrix();
 }
 
@@ -695,16 +906,16 @@ function drawSensores(buffers){
 }
 
 function drawSensor(buffers){
-    drawModel(buffers.cylinder);
-    drawModelWired(buffers.cube, buffers.cube.colorBlack);
-    drawModel(buffers.cube, buffers.cube.colorRed);
+    //drawModel(buffers.cylinder, buffers.cylinder.material);
+    //drawModelWired(buffers.cube, buffers.cube.colorBlack);
+    drawModel(buffers.cube, buffers.cube.materialRed);
 }
 
 function drawBase(buffers){
     mvPushMatrix();
         mat4.translate(modelMatrix, modelMatrix, [0.0, -5.0, 0.0]);
         mat4.scale(modelMatrix, modelMatrix, [500.0, 1.0, 500.0]);
-        drawModel(buffers.cube, buffers.cube.colorGrey);
+        drawModel(buffers.cube, buffers.cube.materialGrey);
     mvPopMatrix();
 }
 
@@ -726,7 +937,7 @@ function mvPopMatrix() {
   return modelMatrix;
 }
 
-function drawModel(cube, colors){
+function drawModel(cube, material){
     {
         const numComponents = 3;  // pull out 3 values per iteration
         const type = gl.FLOAT;    // the data in the buffer is 32bit floats
@@ -745,50 +956,33 @@ function drawModel(cube, colors){
             offset);
         gl.enableVertexAttribArray(
             programInfo.attribLocations.vertexPosition);
-    }
-
-    if(colors == null){
-        {
-            const numComponents = 4;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, cube.color);
-            gl.vertexAttribPointer(
-                programInfo.attribLocations.vertexColor,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                programInfo.attribLocations.vertexColor);
-        }
-    } else {
-        {
-            const numComponents = 4;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, colors);
-            gl.vertexAttribPointer(
-                programInfo.attribLocations.vertexColor,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                programInfo.attribLocations.vertexColor);
-        }
-    }
+    }    
     
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, cube.normal);
+        gl.vertexAttribPointer(
+            programInfo.attribLocations.vertexNormal,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            programInfo.attribLocations.vertexNormal);
+    }
     
     gl.useProgram(programInfo.program);
     const modelViewMatrix = mat4.create();
     mat4.mul(modelViewMatrix, viewMatrix, modelMatrix);
+    
+    mat4.copy(normalMatrix, modelViewMatrix);
+    mat4.invert(normalMatrix, normalMatrix);
+    mat4.transpose(normalMatrix, normalMatrix);
     
     gl.uniformMatrix4fv(
         programInfo.uniformLocations.projectionMatrix,
@@ -799,6 +993,16 @@ function drawModel(cube, colors){
         programInfo.uniformLocations.modelViewMatrix,
         false,
         modelViewMatrix);
+    
+    gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, 
+        false, 
+        normalMatrix);
+    
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialAmbient, material[0]); 
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialDiffuse, material[1]);
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialSpecular,material[2]);
+    gl.uniform1f(programInfo.uniformLocations.uShininess, material[3]);
+    initLights(gl);
     
     {
         const vertexCount = cube.index.numItems;
@@ -809,7 +1013,7 @@ function drawModel(cube, colors){
     
 }
 
-function drawModelWired(cube, colors){
+function drawModelWired(cube, material){
     {
         const numComponents = 3;  // pull out 3 values per iteration
         const type = gl.FLOAT;    // the data in the buffer is 32bit floats
@@ -830,48 +1034,32 @@ function drawModelWired(cube, colors){
             programInfo.attribLocations.vertexPosition);
     }
 
-    if(colors == null){
-        {
-            const numComponents = 4;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, cube.color);
-            gl.vertexAttribPointer(
-                programInfo.attribLocations.vertexColor,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                programInfo.attribLocations.vertexColor);
-        }
-    } else {
-        {
-            const numComponents = 4;
-            const type = gl.FLOAT;
-            const normalize = false;
-            const stride = 0;
-            const offset = 0;
-            gl.bindBuffer(gl.ARRAY_BUFFER, colors);
-            gl.vertexAttribPointer(
-                programInfo.attribLocations.vertexColor,
-                numComponents,
-                type,
-                normalize,
-                stride,
-                offset);
-            gl.enableVertexAttribArray(
-                programInfo.attribLocations.vertexColor);
-        }
+    {
+        const numComponents = 3;
+        const type = gl.FLOAT;
+        const normalize = false;
+        const stride = 0;
+        const offset = 0;
+        gl.bindBuffer(gl.ARRAY_BUFFER, cube.normal);
+        gl.vertexAttribPointer(
+            programInfo.attribLocations.vertexNormal,
+            numComponents,
+            type,
+            normalize,
+            stride,
+            offset);
+        gl.enableVertexAttribArray(
+            programInfo.attribLocations.vertexNormal);
     }
     
     
     gl.useProgram(programInfo.program);
     const modelViewMatrix = mat4.create();
     mat4.mul(modelViewMatrix, viewMatrix, modelMatrix);
+    
+    mat4.copy(normalMatrix, modelViewMatrix);
+    mat4.invert(normalMatrix, normalMatrix);
+    mat4.transpose(normalMatrix, normalMatrix);
     
     gl.uniformMatrix4fv(
         programInfo.uniformLocations.projectionMatrix,
@@ -882,6 +1070,16 @@ function drawModelWired(cube, colors){
         programInfo.uniformLocations.modelViewMatrix,
         false,
         modelViewMatrix);
+    
+    gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, 
+        false, 
+        normalMatrix);
+    
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialAmbient, material[0]); 
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialDiffuse, material[1]);
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialSpecular,material[2]);
+    gl.uniform1f(programInfo.uniformLocations.uShininess, material[3]);
+    initLights(gl);
     
     {
         const vertexCount = cube.index.numItems;
@@ -916,26 +1114,30 @@ function drawCircuito(circuitosBuffer){
     }
 
     {
-        const numComponents = 4;
+        const numComponents = 3;
         const type = gl.FLOAT;
         const normalize = false;
         const stride = 0;
         const offset = 0;
-        gl.bindBuffer(gl.ARRAY_BUFFER, circuitosBuffer.color);
+        gl.bindBuffer(gl.ARRAY_BUFFER, circuitosBuffer.normal);
         gl.vertexAttribPointer(
-            programInfo.attribLocations.vertexColor,
+            programInfo.attribLocations.vertexNormal,
             numComponents,
             type,
             normalize,
             stride,
             offset);
         gl.enableVertexAttribArray(
-            programInfo.attribLocations.vertexColor);
+            programInfo.attribLocations.vertexNormal);
     }
     
     gl.useProgram(programInfo.program);
     const modelViewMatrix = mat4.create();
     mat4.mul(modelViewMatrix, viewMatrix, modelMatrix);
+    
+    mat4.copy(normalMatrix, modelViewMatrix);
+    mat4.invert(normalMatrix, normalMatrix);
+    mat4.transpose(normalMatrix, normalMatrix);
     
     gl.uniformMatrix4fv(
         programInfo.uniformLocations.projectionMatrix,
@@ -946,6 +1148,16 @@ function drawCircuito(circuitosBuffer){
         programInfo.uniformLocations.modelViewMatrix,
         false,
         modelViewMatrix);
+    
+    gl.uniformMatrix4fv(programInfo.uniformLocations.normalMatrix, 
+        false, 
+        normalMatrix);
+    
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialAmbient, circuitosBuffer.material[0]); 
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialDiffuse, circuitosBuffer.material[1]);
+    gl.uniform4fv(programInfo.uniformLocations.uMaterialSpecular,circuitosBuffer.material[2]);
+    gl.uniform1f(programInfo.uniformLocations.uShininess, circuitosBuffer.material[3]);
+    initLights(gl);
     {
         const vertexCount = circuitosBuffer.index.numItems;
         const type = gl.UNSIGNED_SHORT;
@@ -1003,7 +1215,7 @@ function funTimer(deltaTime){
     sd = 1.0;
     
  // Para el efecto de los radios de las ruedas girando
-    rotX -= 2.0;
+    rotX -= V * 10;
 }
 
 function isPointInSensor(point, sensor){
@@ -1021,6 +1233,11 @@ function startCircuit(){
 
 function scroll(e){
     fofView += e.deltaY/75;
+    if(fofView > 160){
+        fofView = 160;
+    } else if(fofView < 10){
+        fofView = 10;
+    }
 }
 
 function handleMouseDown(event){
@@ -1068,4 +1285,64 @@ function handleKeyDown(event) {
 
 function handleKeyUp(event) {
     currentlyPressedKeys[event.keyCode] = false;
+}
+
+//Funcion para calcular las normales de tres vertices
+function calculateNormal (v1, v2, v3, normalData) {
+
+  var subtract = function (a, b) {
+
+    var vec3 = new Array(3);
+
+    vec3[0] = a[0] - b[0],
+    vec3[1] = a[1] - b[1],
+    vec3[2] = a[2] - b[2];
+
+    return vec3;
+
+  }
+
+
+  var crossProduct = function (a, b) {
+
+    var vec3 = new Array(3);
+
+    vec3[0] = a[1] * b[2] - a[2] * b[1];
+    vec3[1] = a[2] * b[0] - a[0] * b[2];
+    vec3[2] = a[0] * b[1] - a[1] * b[0];
+
+    return vec3;
+
+  }
+
+
+  var normalize = function (a) {
+
+    var vec3 = new Array(3);
+
+    var len = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
+      
+    if (len > 0) {
+
+      len = 1 / Math.sqrt(len);
+
+      vec3[0] = len * a[0];
+      vec3[1] = len * a[1];
+      vec3[2] = len * a[2];
+
+    }
+
+    return vec3;
+
+  }
+
+    var p12 = subtract(v2, v1),
+        p23 = subtract(v3, v2);
+    var cp = crossProduct(p12, p23);
+
+    var normal = normalize(cp);
+
+    normalData.push( normal[0], normal[1], normal[2] );
+
+
 }
