@@ -1,32 +1,94 @@
 <html>
+<meta charset="UTF-8">
     <head>
         <script src = ".\toji-gl-matrix-7fc31d5\dist\gl-matrix-min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+        <script src="https://npmcdn.com/tether@1.2.4/dist/js/tether.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+
         <script src="robot.js"></script>
         <link href="styles.css" rel="stylesheet" type="text/css"/>
     </head>
     <body onload="start()">
-        <div class = "canvas">
-            <canvas id="glcanvas" class="gl_canvas" width="750px" height="500px">
-               Tu navegador parece no soportar el elemento HTML5 <code>&lt;canvas&gt;</code>.
-            </canvas>
-        </div>
-        <div class = "row">
-            <div class = "column izq">
-                <div class = "container cameraContainer">
-                    <h2 class = "cameras">Cameras</h2>
-                    <button class="button inline" onclick = "camera = 3">Automatic</button>
-                    <button class="button inline" onclick = "camera = 2">Ortographic</button>
-                    <button class="button inline" onclick = "camera = 1">Following</button>
+        <div class = "container-fluid">
+            <div class = "row content">
+                <div class = "col-sm-8">
+                    <canvas id="glcanvas" class="gl_canvas" width="750px" height="500px">
+                       Tu navegador parece no soportar el elemento HTML5 <code>&lt;canvas&gt;</code>.
+                    </canvas>
                 </div>
-                <div class = "container">
-                    <h2 class = "cameras">Set circuit</h2>
-                    <input class="button inline" type="file" id="circuitoFile">
-                    <button class="button inline" style="display:none" onclick="startCircuit();" id="botonCircuito">Empezar circuito</button>
+                <div class = "col-sm-4">
+                    <div class = "container-fluid">
+                        <h2 class = "title">Modificar coche</h2>
+                        <div class = "input-group mb-1">
+                            <span class = "input-group-addon"> Ancho: </span>
+                            <input type = "number" class = "form-control" id = "ancho" >
+                        </div>
+                        <div class = "input-group mb-1">
+                            <span class = "input-group-addon"> Largo: </span>
+                            <input type = "number" class = "form-control" id = "largo" >
+                        </div>
+                        <div class = "input-group mb-1">
+                            <span class = "input-group-addon"> Distancia entre ruedas: </span>
+                            <input type = "number" class = "form-control" id = "DR" >
+                        </div>
+                        <div class = "input-group mb-1">
+                            <span class = "input-group-addon"> Distancia entre sensores: </span>
+                            <input type = "number" class = "form-control" id = "DS">
+                        </div>
+                        <div class = "input-group mb-1">
+                            <span class = "input-group-addon"> Distancia Ruedas-Sensores: </span>
+                            <input type = "number" class = "form-control" id = "RS">
+                        </div>
+                        <div class = "input-group mb-1">
+                            <span class = "input-group-addon"> Radio rueda: </span>
+                            <input type = "number" class = "form-control" id = "RR">
+                        </div>
+                        <div class = "input-group mb-1">
+                            <span class = "input-group-addon"> Velocidad: </span>
+                            <input type = "number" class = "form-control" id = "V" step="0.1">
+                        </div>
+                        <button class = "btn btn-primary" onclick="saveValues()">Guardar Cambios </button>
+                    </div>
                 </div>
             </div>
-            <div class = "column dcha">
-                <div class = "container">
-                    <h2 class = "Información">Informacion</h2>
+            <div class = "row content">
+                <div class = "col-sm-4 col-xs-4">
+                    <div class = "container cameraContainer">
+                        <h2 class = "cameras">Cámaras</h2>
+                        <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                            <button class="btn btn-default" onclick = "camera = 3">Automatica</button>
+                            <button class="btn btn-default" onclick = "camera = 2">Ortografica</button>
+                            <button class="btn btn-default" onclick = "camera = 1" >Siguiendo</button>
+                        </div>
+                    </div>
+                    <div class = "container">
+                        <h2 class = "cameras">Añadir circuito</h2>
+                        <div class = "row">
+                            <div class = "col-sm-6">
+                                <span class="btn btn-primary btn-file" > Buscar<input type="file" id="circuitoFile" ></span>
+                            </div>
+                            <div class = "col-sm-6">
+                                <button class="btn btn-default" style="display:none" onclick="startCircuit();" id="botonCircuito">Empezar circuito</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class = "col-sm-8 col-xs-8">
+                    <div class = "container-fluid">
+                        <div class = "row">
+                            <div class = "col-sm-5">
+                                <h2 class = "cameras">Información</h2>
+                                <p>Numero de toques: <span id="toques">0</span> </p>
+                                <p>Cronómetro: <span id="chronometer" class="chrono">00:00:00</span></p>
+                            </div>
+                            <div class = "col-sm-7">
+                                <h2 class = "cameras">Vueltas:</h2>
+                                <ol id="vueltas" class="list-group list-group-flush"></ol>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

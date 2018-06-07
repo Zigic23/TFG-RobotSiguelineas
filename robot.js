@@ -26,6 +26,22 @@ var camera = 1;
 var minimoCircuito = null;
 var maximoCircuito = null;
 var center = null;
+var numeroToques = 0;
+var vueltas = 0;
+var startTime;
+var justLap = false;
+var diff;
+
+//Entradas html
+var toques;
+var vueltasHtml;
+var anchoHtml;
+var largoHtml;
+var DRHtml;
+var DSHtml;
+var RSHtml;
+var RRHtml;
+var VHtml;
 
 // Constantes del robot
 var ANCHO = 10.0;   // Ancho del vehículo
@@ -43,7 +59,7 @@ var AC = 0.0;       // Angulo de la cámara.
 
 // Estado del robot
 var desX = 0.0, desZ = 0.0; // Posición
-var rotX = 0.0, rotY = 0.0; // Orientación
+var rotXD = 0.0, rotXI = 0.0, rotY = 0.0; // Orientación
 var si   = 1.0, sd   = 1.0; // Sensores
 
 // Simulación en "tiempo real"
@@ -72,6 +88,23 @@ function initWebGL(canvas) {
 
 
 function start() {
+
+    toques = document.getElementById("toques");
+    vueltasHtml = document.getElementById("vueltas");
+    anchoHtml = document.getElementById("ancho");
+    largoHtml = document.getElementById("largo");
+    DRHtml = document.getElementById("DR");
+    DSHtml = document.getElementById("DS");
+    RSHtml = document.getElementById("RS");
+    RRHtml = document.getElementById("RR");
+    VHtml = document.getElementById("V");
+    anchoHtml.value = ANCHO;
+    largoHtml.value = LARGO;
+    DRHtml.value = DR;
+    DSHtml.value = DS;
+    RSHtml.value = RS;
+    RRHtml.value = RR;
+    VHtml.value = V;
 
     var canvas = document.getElementById("glcanvas");
     
@@ -879,15 +912,18 @@ function drawRuedasDelanteras(buffers){
     const distRueda = DR + 1.0;
     mvPushMatrix();
         mat4.translate(modelMatrix, modelMatrix, [-distRueda, 0.0, 0.0]);
-        drawRuedaDelantera(buffers);
+        drawRuedaDelantera(buffers, "izq");
         mat4.translate(modelMatrix, modelMatrix, [2*distRueda, 0.0, 0.0]);
-        drawRuedaDelantera(buffers);
+        drawRuedaDelantera(buffers, "dcha");
     mvPopMatrix();
 }
 
-function drawRuedaDelantera(buffers){
+function drawRuedaDelantera(buffers, side){
     mvPushMatrix();
-        mat4.rotate(modelMatrix, modelMatrix,- rotX * Math.PI /180, [1.0, 0.0, 0.0]);
+        if(side == "izq")
+            mat4.rotate(modelMatrix, modelMatrix,- rotXI * Math.PI /180, [1.0, 0.0, 0.0]);
+        else
+            mat4.rotate(modelMatrix, modelMatrix,- rotXD * Math.PI /180, [1.0, 0.0, 0.0]);
         mat4.rotate(modelMatrix, modelMatrix, 90 * Math.PI /180, [0.0, 0.0, 1.0]);
         mat4.scale(modelMatrix, modelMatrix, [RR,RR/2, RR]);
         drawModel(buffers.sphere, buffers.sphere.materialGreen);
@@ -1175,6 +1211,7 @@ function funTimer(deltaTime){
         var sensorIzqZ = desZ + Math.cos(rotY*Math.PI/180.0) * (RS) + Math.sin(rotY*Math.PI/180.0) * (-DS/2);
         var sensorDerX = desX + Math.sin(rotY*Math.PI/180.0) * (RS) + Math.cos(rotY*Math.PI/180.0) * (-DS/2);
         var sensorDerZ = desZ + Math.cos(rotY*Math.PI/180.0) * (RS) + Math.sin(rotY*Math.PI/180.0) * (DS/2);
+        comprobarVuelta((sensorIzqX + sensorDerX) / 2, (sensorIzqZ + sensorDerZ) / 2);
         //console.log("Izq: X: " + sensorIzqX + ", Z: " + sensorIzqZ);
         //console.log("Der: X: " + sensorDerX + ", Z: " + sensorDerZ);
         const RAS = 1;
@@ -1187,6 +1224,8 @@ function funTimer(deltaTime){
             var pointBool =  distance < sensor[3];
             if(pointBool){
                 si = 0;
+                addToque();
+                rotXI += V * 10;
                 break;
             }
             sensor = [sensorDerX, 0, sensorDerZ, RAS, "der"];
@@ -1195,6 +1234,8 @@ function funTimer(deltaTime){
             pointBool =  distance < sensor[3];
             if(pointBool){
                 sd = 0;
+                addToque();
+                rotXD += V * 10;
                 break;
             }
             i++;
@@ -1215,7 +1256,8 @@ function funTimer(deltaTime){
     sd = 1.0;
     
  // Para el efecto de los radios de las ruedas girando
-    rotX -= V * 10;
+    rotXD -= V * 10;
+    rotXI -= V * 10;
 }
 
 function isPointInSensor(point, sensor){
@@ -1228,7 +1270,27 @@ function startCircuit(){
     desX = circuito[0];
     desZ = circuito[2];
     rotY = 0;
+    justLap = true;
+    setTimeout(function(){
+        justLap = false;
+    }, 1500);
     calcularSensores = true;
+    startTime = new Date();
+    var x = setInterval(function(){
+        var end = new Date();
+        var temp = end.getTime() - startTime.getTime();
+        diff = new Date(temp);
+        var sec = diff.getSeconds();
+        var min = diff.getMinutes();
+        var hr = diff.getHours() - 1;
+        if (min < 10){
+            min = "0" + min
+        }
+        if (sec < 10){
+            sec = "0" + sec
+        }
+        document.getElementById("chronometer").textContent = hr + ":" + min + ":" + sec;
+    }, 1000);
 }
 
 function scroll(e){
@@ -1276,9 +1338,11 @@ function handleKeyDown(event) {
             break;
         case 'W':
             V += 0.1;
+            VHtml.value = parseFloat(V);
             break;
         case 'S':
             V -= 0.1;
+            VHtml.value = parseFloat(V);
             break;
     }
 }
@@ -1344,5 +1408,57 @@ function calculateNormal (v1, v2, v3, normalData) {
 
     normalData.push( normal[0], normal[1], normal[2] );
 
+}
 
+function comprobarVuelta(x, z){
+    if(circuitoBool) {
+        if (isPointInSensor(circuitoPoints[0], [x, 0, z, DS]) && !justLap) {
+            //Se ha completado una vuelta, ponemos valor boolean a true durante un tiempo (para no repetir la misma vuelta)
+            //Y sumamos un punto a las vueltas, cogiendo el tiempo y reseteando el cronometro.
+            justLap = true;
+            setTimeout(function(){
+                justLap = false;
+            }, 1500);
+            var e = document.createElement("li");
+            var sec, min, hr;
+            if(diff != null){
+                sec = diff.getSeconds();
+                min = diff.getMinutes();
+                hr = diff.getHours() - 1;
+            } else {
+                sec = "00";
+                min = "00";
+                hr = "00";
+            }
+            if (min < 10){
+                min = "0" + min
+            }
+            if (sec < 10){
+                sec = "0" + sec
+            }
+            vueltas++;
+            var p = document.createElement("span");
+            p.textContent = " Tiempo: " + hr + ":" + min + ":" + sec + " - Toques: " + numeroToques;
+            e.append(p);
+            numeroToques = 0;
+            e.className = "list-group-item";
+            vueltasHtml.appendChild(e);
+            startTime = new Date();
+        }
+    }
+}
+
+function addToque() {
+    numeroToques++;
+    toques.textContent = numeroToques;
+}
+
+function saveValues() {
+    ANCHO = parseInt(anchoHtml.value);
+    LARGO = parseInt(largoHtml.value);
+    DR = parseInt(DRHtml.value);
+    DS = parseInt(DSHtml.value);
+    RS = parseInt(RSHtml.value);
+    RR = parseInt(RRHtml.value);
+    V = parseFloat(VHtml.value);
 }
