@@ -1243,9 +1243,9 @@ function funTimer(deltaTime){
     }
     
     var W = V/(RR/100.0); // Velocidad angular de las ruedas
-    desX += (sd + si)*W*RR/2.0*DT*Math.sin(rotY*Math.PI/180.0);
-    desZ += (sd + si)*W*RR/2.0*DT*Math.cos(rotY*Math.PI/180.0);
-    rotY += (sd - si)*W*RR/DR*DT*180.0/Math.PI;
+    desX += (sd + si)*V*RR/2.0*DT*Math.sin(rotY*Math.PI/180.0);
+    desZ += (sd + si)*V*RR/2.0*DT*Math.cos(rotY*Math.PI/180.0);
+    rotY += (sd - si)*V*RR/DR*DT*180.0/Math.PI;
     rotCamera = (rotY * Math.PI/180.0) + AC;
     
     camX = (Math.cos(rotCamera*Math.PI/180) * RC) + desX;
@@ -1256,8 +1256,8 @@ function funTimer(deltaTime){
     sd = 1.0;
     
  // Para el efecto de los radios de las ruedas girando
-    rotXD -= V * 10;
-    rotXI -= V * 10;
+    rotXD -= V;
+    rotXI -= V;
 }
 
 function isPointInSensor(point, sensor){
