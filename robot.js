@@ -50,7 +50,7 @@ var DR = 10.0;      // Distancia entre ruedas
 var DS = 4.0;       // Distancia entre sensores
 var RS = 3.0;       // Distancia entre los ejes Ruedas-Sensores
 var RR = 2.0;       // Radio Rueda
-var V = 0.1;        // Velocidad lineal (m/s)
+var V = 2;        // Velocidad lineal (m/s)
 var RC = 30.0;      // Radio de la camara al coche
 var camX = 0.0;     // Posicion de la camara
 var camZ = 0.0;
@@ -1250,14 +1250,15 @@ function funTimer(deltaTime){
     
     camX = (Math.cos(rotCamera*Math.PI/180) * RC) + desX;
     camZ = (Math.sin(rotCamera*Math.PI/180) * RC) + desZ;
+    
+ // Para el efecto de los radios de las ruedas girando
+    rotXD -= sd * V;
+    rotXI -= si * V;
        
  // Restauramos el estado de los sensores
     si = 1.0;
     sd = 1.0;
     
- // Para el efecto de los radios de las ruedas girando
-    rotXD -= V;
-    rotXI -= V;
 }
 
 function isPointInSensor(point, sensor){
