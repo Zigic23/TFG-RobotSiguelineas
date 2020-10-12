@@ -1,0 +1,6 @@
+- índice
+- número de página /numero total (Insertado).
+- imagen de pregunta.
+
+Memoria en PDF.
+Anexo -> Subir código.
