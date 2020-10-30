@@ -4,3 +4,8 @@
 
 Memoria en PDF.
 Anexo -> Subir código.
+
+TODO:
+Video delante de pruebas para enseñar la aplicación.
+Introducción en cada transparencia de índice.
+Cambiar la imagen de la diapositiva 10

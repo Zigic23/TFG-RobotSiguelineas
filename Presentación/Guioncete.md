@@ -1,4 +1,7 @@
-En este Trabajo se ha implementado una Aplicación Web donde se visualizará el movimiento de un robot móvil con direccionamiento diferencial. Este robot tratará de seguir un circuito introducido por el usuario y podremos recoger y probar distintas combinaciones de él.ç
+Buenos días a todos, mi nombre es Diego Jiménez Fernández-Pacheco, soy alumno del doble grado de ingeniería informática y software. Voy a presentar mi Trabajo de fin de grado que va sobre una simulación mediante WebGL del movimiento de un robót móvil con direccionamiento diferencial.
+
+ÍNDICE - INTRODUCCIÓN
+Esta es la estructura que vamos a seguir en la presentación, comenzamos con la introducción.
 
 MOTIVACION
 El trabajo viene motivado por una herramienta que estaba hecha en matlab y nos permitía ver un vehículo simple siguiendo un circuito, pero la modificación del vehículo conllevaba a modificación de código. 
@@ -34,13 +37,13 @@ VEHICULOS CON RUEDAS
 
 Los vehículos con ruedas son la solución más simple y eficiente para conseguir la movilidad en terrenos suficientemente duros y libres de obstáculos.
 
-Podemos encontrar tres tipos de configuraciones distintas: La configuración ackermann, en la que las ruedas delanteras son las que dan el giro, es la habitual en vehículos de cuatro ruedas convencionales.
+Podemos encontrar tres tipos de configuraciones distintas: La configuración ackermann, es la habitual en vehículos de cuatro ruedas convencionales.
 Otra configuración es el triciclo, en el que la rueda delantera es la que se encarga de la dirección y la tracción.
 Por último tenemos el direccionamiento diferencial, que es aquel en el que el giro viene dado por la diferencia de velocidades de las ruedas laterales. 
 
 DIRECCIONAMIENTO DIFERENCIAL
 
-Para poder simular la posición y rotación del robot en un momento dado necesitamos unir los modelos cinemático y discreto. Al unirlo obtenemos las siguientes ecuaciones, las cuales se actualizan a partirde las velocidades de las ruedas. RR es el radio de las ruedas, B distancia entre ruedas y delta es el paso de la simulación.
+Para poder simular la posición y rotación del robot en un momento dado necesitamos discretizar el modelo cinemático. Al hacerlo obtenemos las siguientes ecuaciones, las cuales se actualizan a partir de las velocidades de las ruedas. RR es el radio de las ruedas, B distancia entre ruedas y delta es el paso de la simulación.
 
 DIR DIF 2.
 
@@ -120,4 +123,4 @@ También podemos implementar una estela en el vehículo y se registrarían en la
 
 PREGUNTAS
 
-Esto es todo, muchas gracias por vuestra atención, si tenéis alguna pregunta ahora es el momento (Por favor no).
+Esto es todo, muchas gracias por vuestra atención, si tenéis alguna pregunta ahora es el momento.
