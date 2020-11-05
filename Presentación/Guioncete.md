@@ -58,6 +58,10 @@ En nuestra aplicación tenemos todos los puntos del circuito y la ubicación de 
 
 ENTORNO TECNOLÓGICO
 
+Vamos a pasar a describir el entorno tecnológico sobre el que hemos desarrollado nuestra aplicación.
+
+ENTORNO WEB
+
 Para definir el entorno tecnológico hemos utilizado HTML, CSS y Javascript. Para aportar toda la funcionalidad hemos utilizado javascript, que es un lenguaje de programación interpretado en el lado del cliente y que es soportado por todos los navegadores. Javascript nos ha permitido además acceder a los elementos HTML y a la api gráfica de WebGL.
 
 WEBGL
