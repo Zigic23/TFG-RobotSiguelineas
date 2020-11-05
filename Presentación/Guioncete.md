@@ -9,7 +9,7 @@ Esto nos lleva a buscar un entorno web que nos permita modificar el vehículo si
 
 OBJETIVOS
 
-El objetivo general es conseguir una visualización 3D del vehículo, para lo que se buscó WebGL para poder representarlo en un entorno Web y poder editarlo de manera simple con unos campos de texto.
+El objetivo general es conseguir una visualización 3D del vehículo con una fácil edición del mismo, por lo que se usó WebGL para poder representarlo en Web.
 
 Además de estos objetivos podenmos encontrar objetivos más especificos como la manipulación del vehículo con el teclado y ratón, la visualización de distintas maneras o el poder añadir un circuito y recoger datos sobre el comportamiento del vehículo.
 
@@ -58,8 +58,7 @@ En nuestra aplicación tenemos todos los puntos del circuito y la ubicación de 
 
 ENTORNO TECNOLÓGICO
 
-Para definir el entorno tecnológico hemos utilizado HTML, CSS y Javascript. Html es un lenguaje de programación que se utiliza para el desarrollo de páginas de Internet. En consonancia con HTML hemos dotado de estilos a la vista utilizando hojas de estilos en cascada, que es un lenguaje de diseño gráfico para estructurar y presentar el documento.
-Para aportar toda la funcionalidad hemos utilizado javascript, que es un lenguaje de programación interpretado en el lado del cliente y que es soportado por todos los navegadores. Javascript nos ha permitido además acceder a los elementos HTML y a la api gráfica de WebGL.
+Para definir el entorno tecnológico hemos utilizado HTML, CSS y Javascript. Para aportar toda la funcionalidad hemos utilizado javascript, que es un lenguaje de programación interpretado en el lado del cliente y que es soportado por todos los navegadores. Javascript nos ha permitido además acceder a los elementos HTML y a la api gráfica de WebGL.
 
 WEBGL
 
